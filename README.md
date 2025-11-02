@@ -18,13 +18,56 @@
 
 ## Установка
 
-1. Установите модуль через стандартную админку OpenCart:
-   - Зайдите в Extensions → Extensions → Extensions
-   - Выберите тип "Modules"
-   - Найдите "Module Installer (CLI)" и нажмите "Install"
-   - Нажмите "Edit" для настройки модуля
+### Ручная установка через SSH
 
-2. CLI-скрипт будет доступен по пути: `upload/cli.php`
+1. **Подключитесь к серверу по SSH:**
+   ```bash
+   ssh user@your-server.com
+   ```
+
+2. **Перейдите в директорию, где установлен OpenCart** (директория с папкой `upload`):
+   ```bash
+   cd /path/to/opencart
+   ```
+
+3. **Скачайте последний zip-архив модуля из GitHub:**
+   ```bash
+   wget https://github.com/telecart-labs/oc_module_installer/archive/refs/heads/master.zip
+   ```
+   
+   Или используя `curl`:
+   ```bash
+   curl -L -o master.zip https://github.com/telecart-labs/oc_module_installer/archive/refs/heads/master.zip
+   ```
+
+4. **Распакуйте архив:**
+   ```bash
+   unzip master.zip
+   ```
+
+5. **Скопируйте всё содержимое папки `upload` из распакованного архива в директорию `upload` OpenCart** (существующие файлы будут перезаписаны):
+   ```bash
+   cp -a oc_module_installer-master/upload/. upload/
+   ```
+   
+   Или используя `rsync` (если доступен):
+   ```bash
+   rsync -av oc_module_installer-master/upload/ upload/
+   ```
+   
+   Эта команда скопирует все файлы и папки (включая скрытые) из `oc_module_installer-master/upload/` в `upload/` OpenCart, перезаписывая существующие файлы.
+
+6. **Удалите временные файлы:**
+   ```bash
+   rm -rf oc_module_installer-master master.zip
+   ```
+
+7. **Проверьте права доступа:**
+   ```bash
+   chmod 755 upload/cli.php
+   ```
+
+После установки CLI-скрипт будет доступен по пути: `upload/cli.php`
 
 ## Использование
 
