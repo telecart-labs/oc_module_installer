@@ -14,6 +14,15 @@ class ControllerExtensionModuleModuleInstaller extends Controller {
         $this->load->model('setting/setting');
 
         if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
+            // Если токен GitHub не передан или пустой, сохраняем существующий токен
+            if (!isset($this->request->post['module_module_installer_github_token']) || 
+                empty($this->request->post['module_module_installer_github_token'])) {
+                $existingToken = $this->config->get('module_module_installer_github_token');
+                if ($existingToken) {
+                    $this->request->post['module_module_installer_github_token'] = $existingToken;
+                }
+            }
+            
             $this->model_setting_setting->editSetting('module_module_installer', $this->request->post);
             $this->session->data['success'] = $this->language->get('text_success');
             $this->response->redirect($this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module', true));
@@ -60,17 +69,57 @@ class ControllerExtensionModuleModuleInstaller extends Controller {
             $data['module_module_installer_status'] = $this->config->get('module_module_installer_status');
         }
 
-        if (isset($this->request->post['module_module_installer_secret_key'])) {
-            $data['module_module_installer_secret_key'] = $this->request->post['module_module_installer_secret_key'];
+        // GitHub настройки
+        if (isset($this->request->post['module_module_installer_github_repo'])) {
+            $data['module_module_installer_github_repo'] = $this->request->post['module_module_installer_github_repo'];
         } else {
-            $data['module_module_installer_secret_key'] = $this->config->get('module_module_installer_secret_key');
+            $data['module_module_installer_github_repo'] = $this->config->get('module_module_installer_github_repo');
+        }
+        
+        // GitHub токен - если не передан или пустой, оставляем старый (не перезаписываем)
+        if (isset($this->request->post['module_module_installer_github_token']) && 
+            !empty($this->request->post['module_module_installer_github_token'])) {
+            $data['module_module_installer_github_token'] = $this->request->post['module_module_installer_github_token'];
+        } else {
+            $existingToken = $this->config->get('module_module_installer_github_token');
+            $data['module_module_installer_github_token'] = $existingToken ? '***HIDDEN***' : '';
+        }
+        
+        if (isset($this->request->post['module_module_installer_github_branch'])) {
+            $data['module_module_installer_github_branch'] = $this->request->post['module_module_installer_github_branch'];
+        } else {
+            $data['module_module_installer_github_branch'] = $this->config->get('module_module_installer_github_branch') ?: 'main';
+        }
+        
+        if (isset($this->request->post['module_module_installer_artifact_name'])) {
+            $data['module_module_installer_artifact_name'] = $this->request->post['module_module_installer_artifact_name'];
+        } else {
+            $data['module_module_installer_artifact_name'] = $this->config->get('module_module_installer_artifact_name') ?: 'oc_telegram_shop.ocmod.zip';
+        }
+        
+        if (isset($this->request->post['module_module_installer_deploy_secret_key'])) {
+            $data['module_module_installer_deploy_secret_key'] = $this->request->post['module_module_installer_deploy_secret_key'];
+        } else {
+            $data['module_module_installer_deploy_secret_key'] = $this->config->get('module_module_installer_deploy_secret_key');
             // Генерируем случайный ключ по умолчанию, если его нет
-            if (empty($data['module_module_installer_secret_key'])) {
-                $data['module_module_installer_secret_key'] = bin2hex(random_bytes(32));
+            if (empty($data['module_module_installer_deploy_secret_key'])) {
+                $data['module_module_installer_deploy_secret_key'] = bin2hex(random_bytes(32));
             }
         }
         
-        // Формируем URL для веб-установки (публичный эндпоинт в catalog)
+        // Последний деплойнутый SHA
+        $data['module_module_installer_last_deployed_sha'] = $this->config->get('module_module_installer_last_deployed_sha');
+        
+        // Лог последнего деплоя
+        $deployLogJson = $this->config->get('module_module_installer_last_deploy_log');
+        if ($deployLogJson) {
+            $deployLog = json_decode($deployLogJson, true);
+            $data['module_module_installer_last_deploy_log'] = $deployLog;
+        } else {
+            $data['module_module_installer_last_deploy_log'] = null;
+        }
+        
+        // Формируем URL для автодеплоя
         // URL должен указывать на корень сайта, а не на админку
         // Используем HTTP_CATALOG или HTTPS_CATALOG, если они определены
         if (defined('HTTP_CATALOG')) {
@@ -93,8 +142,10 @@ class ControllerExtensionModuleModuleInstaller extends Controller {
             $basePath = preg_replace('#/admin.*$#', '', $requestUri);
             $baseUrl = $protocol . $host . rtrim($basePath, '/') . '/';
         }
-        $webInstallUrl = rtrim($baseUrl, '/') . '/index.php?route=module_installer/install&token=' . urlencode($data['module_module_installer_secret_key']);
-        $data['web_install_url'] = $webInstallUrl;
+        
+        // URL для автодеплоя
+        $deployUrl = rtrim($baseUrl, '/') . '/index.php?route=github_deploy/deploy&token=' . urlencode($data['module_module_installer_deploy_secret_key']);
+        $data['deploy_url'] = $deployUrl;
 
         $data['header'] = $this->load->controller('common/header');
         $data['column_left'] = $this->load->controller('common/column_left');
@@ -157,117 +208,6 @@ class ControllerExtensionModuleModuleInstaller extends Controller {
         $this->response->redirect($this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module', true));
     }
 
-    /**
-     * Веб-эндпоинт для установки модулей через HTTP
-     * URL: index.php?route=extension/module/module_installer/webInstall&token=SECRET_KEY
-     * 
-     * Принимает POST-запрос с:
-     * - file: zip-архив модуля (multipart/form-data)
-     * - token: секретный ключ из настроек модуля
-     * - overwrite: опционально, '1' для перезаписи существующих файлов
-     * - verbose: опционально, '1' для подробного лога
-     */
-    public function webInstall() {
-        header('Content-Type: application/json; charset=utf-8');
-        
-        $response = [
-            'success' => false,
-            'message' => '',
-            'log' => []
-        ];
-
-        try {
-            // Проверка секретного ключа
-            $token = isset($this->request->get['token']) ? $this->request->get['token'] : '';
-            $secretKey = $this->config->get('module_module_installer_secret_key');
-            
-            if (empty($secretKey)) {
-                $response['message'] = 'Секретный ключ не настроен. Пожалуйста, настройте его в настройках модуля.';
-                echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-                exit;
-            }
-            
-            if ($token !== $secretKey) {
-                $response['message'] = 'Неверный секретный ключ';
-                echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-                exit;
-            }
-
-            // Проверка наличия файла
-            if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-                $response['message'] = 'Ошибка загрузки файла. Убедитесь, что файл передан корректно.';
-                echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-                exit;
-            }
-
-            $uploadedFile = $_FILES['file'];
-            
-            // Проверка типа файла
-            $fileExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
-            if ($fileExtension !== 'zip') {
-                $response['message'] = 'Поддерживаются только zip-архивы';
-                echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-                exit;
-            }
-
-            // Проверка размера файла (максимум 50MB)
-            if ($uploadedFile['size'] > 50 * 1024 * 1024) {
-                $response['message'] = 'Размер файла превышает 50MB';
-                echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-                exit;
-            }
-
-            // Перемещаем загруженный файл во временную директорию
-            $tempDir = DIR_UPLOAD . 'tmp-web-install/';
-            if (!is_dir($tempDir)) {
-                mkdir($tempDir, 0777, true);
-            }
-            
-            $tempFile = $tempDir . uniqid('module_', true) . '.zip';
-            if (!move_uploaded_file($uploadedFile['tmp_name'], $tempFile)) {
-                throw new Exception('Не удалось сохранить загруженный файл');
-            }
-
-            // Получаем параметры
-            $overwrite = isset($this->request->post['overwrite']) && $this->request->post['overwrite'] === '1';
-            $verbose = isset($this->request->post['verbose']) && $this->request->post['verbose'] === '1';
-
-            // Загружаем класс установщика
-            require_once DIR_SYSTEM . 'library/module_installer.php';
-
-            // Создаем экземпляр установщика
-            $installer = new ModuleInstaller($this->registry, $verbose);
-
-            // Устанавливаем callback для сбора логов
-            ob_start();
-            try {
-                $installer->install($tempFile, $overwrite);
-                $output = ob_get_clean();
-                
-                // Удаляем временный файл после успешной установки
-                @unlink($tempFile);
-                
-                $response['success'] = true;
-                $response['message'] = 'Модуль успешно установлен';
-                $response['log'] = explode("\n", trim($output));
-            } catch (Exception $e) {
-                ob_end_clean();
-                
-                // Удаляем временный файл в случае ошибки
-                @unlink($tempFile);
-                
-                throw $e;
-            }
-
-        } catch (Exception $e) {
-            $response['message'] = 'Ошибка при установке модуля: ' . $e->getMessage();
-            if (isset($verbose) && $verbose) {
-                $response['trace'] = $e->getTraceAsString();
-            }
-        }
-
-        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        exit;
-    }
 }
+
 

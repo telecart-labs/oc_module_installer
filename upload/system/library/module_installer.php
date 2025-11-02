@@ -42,9 +42,10 @@ class ModuleInstaller {
             
             // ВНИМАНИЕ: В оригинальном OpenCart модификации НЕ применяются автоматически
             // Они только добавляются в БД и должны быть применены вручную через админку
-            // Для удобства CLI мы применяем их автоматически, но это отклонение от оригинала
-            $this->log("Применение OCMOD модификаций (в оригинале OpenCart это делается вручную)...");
-            $this->applyModifications();
+            // ОТКЛЮЧЕНО: Установщик не должен модифицировать системные файлы OpenCart
+            // Если модификации необходимы, их можно применить вручную через админку
+            // $this->log("Применение OCMOD модификаций (в оригинале OpenCart это делается вручную)...");
+            // $this->applyModifications();
             
             // Очистка кэша (также не делается автоматически в оригинале, но полезно для CLI)
             $this->clearCache();
@@ -128,6 +129,7 @@ class ModuleInstaller {
         }
 
         // Разрешенные директории для записи
+        // Список соответствует стандартной структуре модулей OpenCart
         $allowed = [
             'admin/controller/extension/',
             'admin/language/',
@@ -140,6 +142,7 @@ class ModuleInstaller {
             'catalog/language/',
             'catalog/model/extension/',
             'catalog/view/javascript/',
+            'catalog/view/template/extension/',
             'catalog/view/theme/',
             'system/config/',
             'system/library/',
@@ -167,13 +170,82 @@ class ModuleInstaller {
             }
         }
 
+        // Проверяем, что необходимые константы определены
+        if (!defined('DIR_APPLICATION')) {
+            throw new Exception("Константа DIR_APPLICATION не определена");
+        }
+        if (!defined('DIR_CATALOG')) {
+            throw new Exception("Константа DIR_CATALOG не определена. Убедитесь, что она определена перед использованием ModuleInstaller");
+        }
+        if (!defined('DIR_IMAGE')) {
+            throw new Exception("Константа DIR_IMAGE не определена");
+        }
+        if (!defined('DIR_SYSTEM')) {
+            throw new Exception("Константа DIR_SYSTEM не определена");
+        }
+
+        // Определяем путь к admin директории
+        // В catalog контроллере DIR_APPLICATION указывает на catalog/, поэтому нужно найти admin/
+        $adminPath = null;
+        
+        // Нормализуем DIR_APPLICATION (убираем trailing slash если есть, потом добавим)
+        $appDir = rtrim(DIR_APPLICATION, '/');
+        
+        if (basename($appDir) === 'catalog') {
+            // DIR_APPLICATION указывает на catalog/, admin должен быть рядом
+            // Например: /web/upload/catalog/ -> /web/upload/admin/
+            $adminPath = dirname($appDir) . '/admin/';
+        } elseif (basename($appDir) === 'admin') {
+            // DIR_APPLICATION уже указывает на admin/
+            $adminPath = $appDir . '/';
+        } else {
+            // Пытаемся найти admin относительно DIR_APPLICATION
+            $possiblePaths = [
+                dirname($appDir) . '/admin/',
+                dirname(dirname($appDir)) . '/admin/',
+                $appDir . '/../admin/',
+            ];
+            foreach ($possiblePaths as $possiblePath) {
+                $normalized = rtrim(str_replace('\\', '/', $possiblePath), '/');
+                $realPath = realpath($normalized);
+                if ($realPath && is_dir($realPath)) {
+                    $adminPath = $realPath . '/';
+                    break;
+                }
+            }
+            if (!$adminPath) {
+                // Последняя попытка: проверяем стандартный путь OpenCart
+                // Если DIR_APPLICATION = /web/upload/catalog/, то admin = /web/upload/admin/
+                $uploadDir = dirname($appDir);
+                if (basename($uploadDir) === 'upload' && is_dir($uploadDir . '/admin')) {
+                    $adminPath = $uploadDir . '/admin/';
+                } else {
+                    // Fallback: используем DIR_APPLICATION (возможно, это уже admin)
+                    $adminPath = DIR_APPLICATION;
+                }
+            }
+        }
+        
+        // Проверяем, что admin путь действительно существует
+        if ($adminPath && !is_dir($adminPath)) {
+            throw new Exception("Не найдена admin директория по пути: " . $adminPath . " (DIR_APPLICATION = " . DIR_APPLICATION . ")");
+        }
+        
+        // Отладочная информация (только если verbose)
+        if ($this->verbose) {
+            $this->log("Пути для установки:", true);
+            $this->log("  DIR_APPLICATION = " . DIR_APPLICATION, true);
+            $this->log("  DIR_CATALOG = " . (defined('DIR_CATALOG') ? DIR_CATALOG : 'не определена'), true);
+            $this->log("  Admin путь = " . $adminPath, true);
+        }
+
         // Перемещаем файлы
         foreach ($files as $file) {
             $destination = str_replace('\\', '/', substr($file, strlen($uploadDir)));
             $path = '';
 
             if (substr($destination, 0, 5) == 'admin') {
-                $path = DIR_APPLICATION . substr($destination, 6);
+                $path = $adminPath . substr($destination, 6);
             } elseif (substr($destination, 0, 7) == 'catalog') {
                 $path = DIR_CATALOG . substr($destination, 8);
             } elseif (substr($destination, 0, 5) == 'image') {
@@ -410,45 +482,10 @@ class ModuleInstaller {
 
     /**
      * Применение OCMOD модификаций
+     * Применяет только модификации, связанные с текущим устанавливаемым модулем
      */
     private function applyModifications() {
         $this->log("Применение OCMOD модификаций...");
-
-        // Очищаем лог модификаций
-        $logFile = DIR_LOGS . 'ocmod.log';
-        if (is_writable(dirname($logFile))) {
-            $handle = fopen($logFile, 'w+');
-            fclose($handle);
-        }
-
-        // Очищаем все файлы модификаций
-        $modificationDir = DIR_MODIFICATION;
-        if (is_dir($modificationDir)) {
-            $files = [];
-            $path = [$modificationDir . '*'];
-
-            while (count($path) != 0) {
-                $next = array_shift($path);
-                foreach (glob($next) as $file) {
-                    if (is_dir($file)) {
-                        $path[] = $file . '/*';
-                    }
-                    $files[] = $file;
-                }
-            }
-
-            rsort($files);
-
-            foreach ($files as $file) {
-                if ($file != $modificationDir . 'index.html') {
-                    if (is_file($file)) {
-                        @unlink($file);
-                    } elseif (is_dir($file)) {
-                        @rmdir($file);
-                    }
-                }
-            }
-        }
 
         // Загружаем модификации из базы данных
         $loader = $this->registry->get('load');
@@ -457,26 +494,23 @@ class ModuleInstaller {
 
         $xml = [];
 
-        // Загружаем базовый файл модификаций
-        $defaultModFile = DIR_SYSTEM . 'modification.xml';
-        if (is_file($defaultModFile)) {
-            $xml[] = file_get_contents($defaultModFile);
-        }
-
-        // Загружаем .ocmod.xml файлы из system (для разработчиков)
-        $ocmodFiles = glob(DIR_SYSTEM . '*.ocmod.xml');
-        if ($ocmodFiles) {
-            foreach ($ocmodFiles as $file) {
-                $xml[] = file_get_contents($file);
+        // Получаем только модификации текущего модуля (по extension_install_id)
+        // НЕ применяем базовые модификации OpenCart и модификации других модулей
+        if ($this->extensionInstallId) {
+            $results = $model_modification->getModifications();
+            foreach ($results as $result) {
+                // Применяем только модификации, связанные с текущим устанавливаемым модулем
+                if ($result['status'] && isset($result['extension_install_id']) && 
+                    $result['extension_install_id'] == $this->extensionInstallId) {
+                    $xml[] = $result['xml'];
+                }
             }
         }
-
-        // Получаем модификации из базы данных
-        $results = $model_modification->getModifications();
-        foreach ($results as $result) {
-            if ($result['status']) {
-                $xml[] = $result['xml'];
-            }
+        
+        // Если нет модификаций для текущего модуля, пропускаем применение
+        if (empty($xml)) {
+            $this->log("Нет модификаций для применения (модуль не содержит OCMOD модификаций)");
+            return;
         }
 
         // Применяем модификации
@@ -822,6 +856,20 @@ class ModuleInstaller {
      */
     public function getLogMessages() {
         return $this->logMessages;
+    }
+    
+    /**
+     * Получить список установленных файлов
+     */
+    public function getInstalledFiles() {
+        return $this->installedFiles;
+    }
+    
+    /**
+     * Получить список установленных путей
+     */
+    public function getInstalledPaths() {
+        return $this->installedPaths;
     }
 }
 

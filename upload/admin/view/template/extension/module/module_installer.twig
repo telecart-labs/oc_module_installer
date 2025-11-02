@@ -44,19 +44,121 @@
               </select>
             </div>
           </div>
+          
           <div class="form-group">
-            <label class="col-sm-2 control-label" for="input-secret-key">
-              {{ entry_secret_key }}
-              <span data-toggle="tooltip" title="{{ entry_secret_key_help }}"></span>
+            <label class="col-sm-2 control-label" for="input-github-repo">
+              {{ entry_github_repo }}
+              <span data-toggle="tooltip" title="{{ entry_github_repo_help }}"></span>
             </label>
             <div class="col-sm-10">
-              <input type="text" name="module_module_installer_secret_key" value="{{ module_module_installer_secret_key }}" id="input-secret-key" class="form-control" />
-              <span class="help-block">{{ entry_secret_key_help }}</span>
+              <input type="text" name="module_module_installer_github_repo" value="{{ module_module_installer_github_repo }}" id="input-github-repo" class="form-control" placeholder="owner/repo" />
+              <span class="help-block">{{ entry_github_repo_help }}</span>
             </div>
           </div>
+          
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-github-token">
+              {{ entry_github_token }}
+              <span data-toggle="tooltip" title="{{ entry_github_token_help }}"></span>
+            </label>
+            <div class="col-sm-10">
+              {% if module_module_installer_github_token == '***HIDDEN***' %}
+              <input type="password" name="module_module_installer_github_token" value="" id="input-github-token" class="form-control" autocomplete="off" placeholder="(токен уже установлен)" />
+              <span class="help-block"><small class="text-muted">Токен уже установлен. Оставьте поле пустым, чтобы не изменять его, или введите новый токен для замены.</small></span>
+              {% else %}
+              <input type="password" name="module_module_installer_github_token" value="" id="input-github-token" class="form-control" autocomplete="off" />
+              {% endif %}
+              <span class="help-block">{{ entry_github_token_help }}</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-github-branch">
+              {{ entry_github_branch }}
+              <span data-toggle="tooltip" title="{{ entry_github_branch_help }}"></span>
+            </label>
+            <div class="col-sm-10">
+              <input type="text" name="module_module_installer_github_branch" value="{{ module_module_installer_github_branch }}" id="input-github-branch" class="form-control" placeholder="main" />
+              <span class="help-block">{{ entry_github_branch_help }}</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-artifact-name">
+              {{ entry_artifact_name }}
+              <span data-toggle="tooltip" title="{{ entry_artifact_name_help }}"></span>
+            </label>
+            <div class="col-sm-10">
+              <input type="text" name="module_module_installer_artifact_name" value="{{ module_module_installer_artifact_name }}" id="input-artifact-name" class="form-control" placeholder="oc_telegram_shop.ocmod.zip" />
+              <span class="help-block">{{ entry_artifact_name_help }}</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-deploy-secret-key">
+              {{ entry_deploy_secret_key }}
+              <span data-toggle="tooltip" title="{{ entry_deploy_secret_key_help }}"></span>
+            </label>
+            <div class="col-sm-10">
+              <input type="text" name="module_module_installer_deploy_secret_key" value="{{ module_module_installer_deploy_secret_key }}" id="input-deploy-secret-key" class="form-control" />
+              <span class="help-block">{{ entry_deploy_secret_key_help }}</span>
+            </div>
+          </div>
+          
+          {% if module_module_installer_last_deployed_sha %}
+          <div class="form-group">
+            <label class="col-sm-2 control-label">{{ entry_last_deployed_sha }}</label>
+            <div class="col-sm-10">
+              <code>{{ module_module_installer_last_deployed_sha }}</code>
+            </div>
+          </div>
+          {% endif %}
         </form>
       </div>
     </div>
+    
+    {% if module_module_installer_last_deploy_log %}
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-history"></i> {{ entry_last_deploy_log }}</h3>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="col-sm-2 control-label">Время:</label>
+          <div class="col-sm-10">
+            <code>{{ module_module_installer_last_deploy_log.timestamp }}</code>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-2 control-label">Commit SHA:</label>
+          <div class="col-sm-10">
+            <code>{{ module_module_installer_last_deploy_log.sha }}</code>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-2 control-label">Результат:</label>
+          <div class="col-sm-10">
+            {% if module_module_installer_last_deploy_log.success %}
+            <span class="label label-success">Успешно</span>
+            {% else %}
+            <span class="label label-danger">Ошибка</span>
+            {% endif %}
+            {% if module_module_installer_last_deploy_log.files_count is defined %}
+            <span class="label label-info" style="margin-left: 10px;">Установлено файлов: {{ module_module_installer_last_deploy_log.files_count }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if module_module_installer_last_deploy_log.log %}
+        <div class="form-group">
+          <label class="col-sm-2 control-label">Полный лог:</label>
+          <div class="col-sm-10">
+            <pre style="max-height: 300px; overflow-y: auto; background: #f5f5f5; padding: 10px; border-radius: 4px;">{{ module_module_installer_last_deploy_log.log }}</pre>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     
     <div class="panel panel-info">
       <div class="panel-heading">
@@ -88,9 +190,9 @@
       </div>
     </div>
     
-    <div class="panel panel-success">
+    <div class="panel panel-primary">
       <div class="panel-heading">
-        <h3 class="panel-title"><i class="fa fa-globe"></i> Веб-установка модулей</h3>
+        <h3 class="panel-title"><i class="fa fa-github"></i> Автодеплой из GitHub</h3>
       </div>
       <div class="panel-body">
         <div class="alert alert-warning">
@@ -98,10 +200,10 @@
         </div>
         
         <div class="form-group">
-          <label class="col-sm-2 control-label">{{ info_web_install_url }}</label>
+          <label class="col-sm-2 control-label">{{ info_deploy_url }}</label>
           <div class="col-sm-10">
-            <code id="web-install-url">{{ web_install_url }}</code>
-            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('web-install-url')">
+            <code id="deploy-url">{{ deploy_url }}</code>
+            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('deploy-url')">
               <i class="fa fa-copy"></i> Копировать
             </button>
           </div>
@@ -110,8 +212,8 @@
         <div class="form-group">
           <label class="col-sm-2 control-label"></label>
           <div class="col-sm-10">
-            {% set web_install_description = info_web_install_description|replace({'WEB_INSTALL_URL': web_install_url}) %}
-            {{ web_install_description }}
+            {% set deploy_description = info_deploy_description|replace({'DEPLOY_URL': deploy_url}) %}
+            {{ deploy_description }}
           </div>
         </div>
       </div>
