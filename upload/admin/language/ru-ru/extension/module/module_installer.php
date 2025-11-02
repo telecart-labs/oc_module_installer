@@ -30,6 +30,8 @@ $_['entry_last_deploy_log'] = 'Лог последнего деплоя';
 // Button
 $_['button_save']      = 'Сохранить';
 $_['button_cancel']    = 'Отмена';
+$_['button_deploy']    = 'Запустить деплой';
+$_['button_deploy_force'] = 'Принудительный деплой';
 
 // Error
 $_['error_permission'] = 'Предупреждение: У вас нет прав для изменения модуля "Установщик модулей"!';
@@ -49,4 +51,5 @@ $_['info_deploy_example_json'] = 'JSON запрос:';
 $_['info_deploy_example_github_actions'] = 'GitHub Actions:';
 $_['info_deploy_example_no_key'] = 'Сначала установите секретный ключ для автодеплоя, чтобы увидеть примеры.';
 $_['button_copy'] = 'Копировать';
+$_['text_deploy_actions'] = 'Действия:';
 

@@ -129,6 +129,7 @@ class ControllerGitHubDeploy extends Controller {
             
             if (empty($githubToken) || empty($githubRepo)) {
                 $response['message'] = 'GitHub настройки не заполнены';
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
@@ -136,6 +137,7 @@ class ControllerGitHubDeploy extends Controller {
             // Парсим owner/repo
             if (!preg_match('/^([^\/]+)\/([^\/]+)$/', $githubRepo, $matches)) {
                 $response['message'] = 'Неверный формат репозитория (должен быть owner/repo)';
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
@@ -153,6 +155,7 @@ class ControllerGitHubDeploy extends Controller {
             
             if (!$currentSha) {
                 $response['message'] = 'Не удалось получить commit SHA из GitHub';
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
@@ -194,12 +197,14 @@ class ControllerGitHubDeploy extends Controller {
                 $artifact = $github->downloadLatestArtifact($tempDir, $currentSha, $artifactName);
             } catch (Exception $e) {
                 $response['message'] = 'Ошибка при получении artifact: ' . $e->getMessage();
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
             
             if (!$artifact) {
                 $response['message'] = 'Не найден ZIP artifact для скачивания';
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
@@ -226,6 +231,7 @@ class ControllerGitHubDeploy extends Controller {
             if (!file_exists($cliPath)) {
                 @unlink($artifact['path']);
                 $response['message'] = 'CLI скрипт не найден. Проверьте наличие файла cli.php в корне OpenCart.';
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
@@ -332,6 +338,7 @@ class ControllerGitHubDeploy extends Controller {
             if (!$deploySuccess) {
                 $response['message'] = 'Ошибка при установке модуля';
                 $this->saveDeployLog($currentSha, false, $logOutput, $installedFiles);
+                http_response_code(500);
                 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
@@ -350,6 +357,17 @@ class ControllerGitHubDeploy extends Controller {
             $response['message'] = 'Ошибка: ' . $e->getMessage();
             if (isset($currentSha)) {
                 $this->saveDeployLog($currentSha, false, $e->getMessage(), isset($installedFiles) ? $installedFiles : []);
+            }
+            http_response_code(500);
+        }
+        
+        // Устанавливаем HTTP статус код в зависимости от результата
+        // Если статус ошибки и код ответа еще не установлен на специальные значения (403, 405, 429), устанавливаем 500
+        if ($response['status'] === 'error') {
+            $currentCode = http_response_code();
+            // Проверяем, не установлен ли уже специальный код (403, 405, 429)
+            if ($currentCode !== 403 && $currentCode !== 405 && $currentCode !== 429) {
+                http_response_code(500);
             }
         }
         

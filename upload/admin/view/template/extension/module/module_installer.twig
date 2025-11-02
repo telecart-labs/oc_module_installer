@@ -160,6 +160,36 @@
     </div>
     {% endif %}
     
+    {% if deploy_secret_key %}
+    <div class="panel panel-warning">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-rocket"></i> Принудительный деплой</h3>
+      </div>
+      <div class="panel-body">
+        <div class="alert alert-info">
+          <i class="fa fa-info-circle"></i> Принудительный деплой выполнит установку модуля независимо от того, изменился ли commit SHA.
+        </div>
+        
+        <div class="form-group">
+          <label class="col-sm-2 control-label"></label>
+          <div class="col-sm-10">
+            <button type="button" id="btn-deploy-force" class="btn btn-warning btn-lg" onclick="triggerForceDeploy()" data-deploy-url="{{ deploy_action_url }}">
+              <i class="fa fa-exclamation-circle"></i> {{ button_deploy_force }}
+            </button>
+            <span id="deploy-force-status" style="margin-left: 15px;"></span>
+          </div>
+        </div>
+        
+        <div class="form-group" id="deploy-logs-container" style="display: none;">
+          <label class="col-sm-2 control-label">Логи деплоя:</label>
+          <div class="col-sm-10">
+            <div id="deploy-logs" style="max-height: 400px; overflow-y: auto; background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
     <div class="panel panel-info">
       <div class="panel-heading">
         <h3 class="panel-title"><i class="fa fa-info-circle"></i> Информация о CLI</h3>
@@ -305,6 +335,132 @@ function copyToClipboard(elementId) {
     }
     document.body.removeChild(textArea);
   }
+}
+
+function triggerForceDeploy() {
+  var btnForce = document.getElementById('btn-deploy-force');
+  var statusDiv = document.getElementById('deploy-force-status');
+  var logsContainer = document.getElementById('deploy-logs-container');
+  var logsDiv = document.getElementById('deploy-logs');
+  
+  // Отключаем кнопку
+  btnForce.disabled = true;
+  
+  // Показываем индикатор загрузки
+  statusDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Запуск деплоя...';
+  
+  // Показываем блок с логами и очищаем его
+  logsContainer.style.display = 'block';
+  logsDiv.innerHTML = 'Запуск деплоя...\n\n';
+  
+  // Формируем URL - используем админский прокси метод
+  // Берем URL из data-атрибута кнопки или декодируем из шаблона
+  var deployUrl = btnForce.getAttribute('data-deploy-url');
+  if (!deployUrl) {
+    // Fallback: декодируем HTML-сущности (&amp; -> &)
+    var deployUrlRaw = '{{ deploy_action_url }}';
+    deployUrl = deployUrlRaw.replace(/&amp;/g, '&');
+  }
+  
+  // Выполняем AJAX запрос (POST с данными)
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', deployUrl, true);
+  xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      // Включаем кнопку обратно
+      btnForce.disabled = false;
+      
+      if (xhr.status === 200) {
+        try {
+          var responseText = xhr.responseText;
+          
+          // Пробуем распарсить как JSON
+          var response;
+          try {
+            response = JSON.parse(responseText);
+          } catch (e) {
+            // Если не JSON, показываем сырой ответ
+            logsDiv.innerHTML += '\n=== Ответ сервера (не JSON) ===\n' + responseText;
+            statusDiv.innerHTML = '<span class="text-warning"><i class="fa fa-exclamation-triangle"></i> Получен не JSON ответ</span>';
+            return;
+          }
+          
+          // Добавляем информацию о деплое в логи
+          logsDiv.innerHTML += '\n=== Информация о деплое ===\n';
+          if (response.current_sha) {
+            logsDiv.innerHTML += 'Текущий SHA: ' + response.current_sha + '\n';
+          }
+          if (response.previous_sha) {
+            logsDiv.innerHTML += 'Предыдущий SHA: ' + response.previous_sha + '\n';
+          }
+          logsDiv.innerHTML += 'Статус: ' + (response.status || 'unknown') + '\n';
+          logsDiv.innerHTML += 'Сообщение: ' + (response.message || 'нет') + '\n';
+          
+          // Дополнительная информация об ошибках
+          if (response.http_code) {
+            logsDiv.innerHTML += 'HTTP код: ' + response.http_code + '\n';
+          }
+          if (response.json_error) {
+            logsDiv.innerHTML += 'Ошибка парсинга JSON: ' + response.json_error + '\n';
+          }
+          if (response.curl_error) {
+            logsDiv.innerHTML += 'Ошибка CURL: ' + response.curl_error + '\n';
+          }
+          if (response.raw_response) {
+            logsDiv.innerHTML += '\nСырой ответ сервера:\n' + response.raw_response + '\n';
+          }
+          
+          if (response.status === 'success') {
+            statusDiv.innerHTML = '<span class="text-success"><i class="fa fa-check-circle"></i> ' + (response.message || 'Деплой успешно выполнен!') + '</span>';
+            logsDiv.innerHTML += '\n=== ✓ Деплой завершен успешно ===\n';
+            
+            // Перезагружаем страницу через 3 секунды для обновления логов
+            setTimeout(function() {
+              location.reload();
+            }, 3000);
+          } else {
+            statusDiv.innerHTML = '<span class="text-danger"><i class="fa fa-exclamation-circle"></i> ' + (response.message || 'Ошибка при деплое') + '</span>';
+            logsDiv.innerHTML += '\n=== ✗ Деплой завершен с ошибкой ===\n';
+          }
+          
+          // Прокручиваем логи вниз
+          logsDiv.scrollTop = logsDiv.scrollHeight;
+          
+        } catch (e) {
+          logsDiv.innerHTML += '\n\n=== ОШИБКА ПРИ РАЗБОРЕ ОТВЕТА ===\n';
+          logsDiv.innerHTML += 'Ошибка: ' + e.message + '\n';
+          logsDiv.innerHTML += 'Сырой ответ:\n' + xhr.responseText.substring(0, 1000) + '\n';
+          statusDiv.innerHTML = '<span class="text-danger"><i class="fa fa-exclamation-circle"></i> Ошибка при разборе ответа сервера: ' + e.message + '</span>';
+          logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+      } else {
+        statusDiv.innerHTML = '<span class="text-danger"><i class="fa fa-exclamation-circle"></i> HTTP ошибка: ' + xhr.status + '</span>';
+        logsDiv.innerHTML += '\n\n=== ОШИБКА HTTP ===\n';
+        logsDiv.innerHTML += 'HTTP код: ' + xhr.status + '\n';
+        if (xhr.responseText) {
+          logsDiv.innerHTML += 'Ответ сервера:\n' + xhr.responseText.substring(0, 500) + '\n';
+        }
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+      }
+    }
+  };
+  xhr.onerror = function() {
+    btnForce.disabled = false;
+    statusDiv.innerHTML = '<span class="text-danger"><i class="fa fa-exclamation-circle"></i> Ошибка сети при выполнении запроса</span>';
+    logsDiv.innerHTML += '\n\n=== ОШИБКА СЕТИ ===\n';
+    logsDiv.innerHTML += 'Не удалось выполнить запрос к серверу.\n';
+    logsContainer.style.display = 'block';
+    logsDiv.scrollTop = logsDiv.scrollHeight;
+  };
+  xhr.onloadstart = function() {
+    logsDiv.innerHTML += 'Отправка запроса...\n';
+    logsDiv.scrollTop = logsDiv.scrollHeight;
+  };
+  
+  // Отправляем POST данные с параметром force
+  var postData = 'force=1';
+  xhr.send(postData);
 }
 </script>
 {{ footer }}

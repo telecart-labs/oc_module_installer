@@ -30,6 +30,8 @@ $_['entry_last_deploy_log'] = 'Last deployment log';
 // Button
 $_['button_save']      = 'Save';
 $_['button_cancel']    = 'Cancel';
+$_['button_deploy']    = 'Deploy';
+$_['button_deploy_force'] = 'Force Deploy';
 
 // Error
 $_['error_permission'] = 'Warning: You do not have permission to modify Module Installer module!';
@@ -49,4 +51,5 @@ $_['info_deploy_example_json'] = 'JSON request:';
 $_['info_deploy_example_github_actions'] = 'GitHub Actions:';
 $_['info_deploy_example_no_key'] = 'Please set the deployment secret key first to see examples.';
 $_['button_copy'] = 'Copy';
+$_['text_deploy_actions'] = 'Actions:';
 

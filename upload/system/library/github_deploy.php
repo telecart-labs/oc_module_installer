@@ -43,17 +43,55 @@ class GitHubDeploy {
      * @return array|false ['path' => путь к файлу, 'name' => имя файла] или false
      */
     public function downloadLatestArtifact($tempDir, $commitSha = null, $artifactName = 'oc_telegram_shop.ocmod.zip') {
-        // Получаем последний workflow run для этого коммита в указанной ветке
-        $runsUrl = $this->apiBase . '/repos/' . urlencode($this->owner) . '/' . urlencode($this->repo) . '/actions/runs?head_sha=' . urlencode($commitSha) . '&head_branch=' . urlencode($this->branch) . '&per_page=1&status=completed';
+        $workflowRun = null;
         
-        $runsResponse = $this->makeRequest($runsUrl);
-        
-        if (!$runsResponse || !isset($runsResponse['workflow_runs']) || empty($runsResponse['workflow_runs'])) {
-            throw new Exception('Не найдено workflow runs для коммита ' . substr($commitSha, 0, 7) . ' в ветке ' . $this->branch);
+        // Сначала пытаемся найти workflow run для конкретного коммита
+        if ($commitSha) {
+            $runsUrl = $this->apiBase . '/repos/' . urlencode($this->owner) . '/' . urlencode($this->repo) . '/actions/runs?head_sha=' . urlencode($commitSha) . '&head_branch=' . urlencode($this->branch) . '&per_page=10&status=completed';
+            
+            $runsResponse = $this->makeRequest($runsUrl);
+            
+            if ($runsResponse && isset($runsResponse['workflow_runs']) && !empty($runsResponse['workflow_runs'])) {
+                // Ищем успешный run (conclusion=success)
+                foreach ($runsResponse['workflow_runs'] as $run) {
+                    if (isset($run['conclusion']) && $run['conclusion'] === 'success') {
+                        $workflowRun = $run;
+                        break;
+                    }
+                }
+                // Если успешный не найден, берем первый завершенный
+                if (!$workflowRun) {
+                    $workflowRun = $runsResponse['workflow_runs'][0];
+                }
+            }
         }
         
-        // Берем первый (последний) workflow run
-        $workflowRun = $runsResponse['workflow_runs'][0];
+        // Если не нашли по SHA, ищем последний успешный workflow run в ветке
+        if (!$workflowRun) {
+            $runsUrl = $this->apiBase . '/repos/' . urlencode($this->owner) . '/' . urlencode($this->repo) . '/actions/runs?head_branch=' . urlencode($this->branch) . '&per_page=20&status=completed';
+            
+            $runsResponse = $this->makeRequest($runsUrl);
+            
+            if ($runsResponse && isset($runsResponse['workflow_runs']) && !empty($runsResponse['workflow_runs'])) {
+                // Ищем первый успешный run
+                foreach ($runsResponse['workflow_runs'] as $run) {
+                    if (isset($run['conclusion']) && $run['conclusion'] === 'success') {
+                        $workflowRun = $run;
+                        break;
+                    }
+                }
+                // Если успешный не найден, берем первый завершенный
+                if (!$workflowRun && !empty($runsResponse['workflow_runs'])) {
+                    $workflowRun = $runsResponse['workflow_runs'][0];
+                }
+            }
+        }
+        
+        if (!$workflowRun) {
+            $shaInfo = $commitSha ? ' для коммита ' . substr($commitSha, 0, 7) : '';
+            throw new Exception('Не найдено workflow runs' . $shaInfo . ' в ветке ' . $this->branch);
+        }
+        
         $runId = $workflowRun['id'];
         
         // Получаем artifacts для этого workflow run
