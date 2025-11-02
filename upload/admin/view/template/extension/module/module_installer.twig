@@ -44,6 +44,16 @@
               </select>
             </div>
           </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-secret-key">
+              {{ entry_secret_key }}
+              <span data-toggle="tooltip" title="{{ entry_secret_key_help }}"></span>
+            </label>
+            <div class="col-sm-10">
+              <input type="text" name="module_module_installer_secret_key" value="{{ module_module_installer_secret_key }}" id="input-secret-key" class="form-control" />
+              <span class="help-block">{{ entry_secret_key_help }}</span>
+            </div>
+          </div>
         </form>
       </div>
     </div>
@@ -77,7 +87,61 @@
         </div>
       </div>
     </div>
+    
+    <div class="panel panel-success">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-globe"></i> Веб-установка модулей</h3>
+      </div>
+      <div class="panel-body">
+        <div class="alert alert-warning">
+          <i class="fa fa-exclamation-triangle"></i> <strong>Внимание:</strong> Используйте секретный ключ для защиты эндпоинта. Не передавайте его в открытом виде.
+        </div>
+        
+        <div class="form-group">
+          <label class="col-sm-2 control-label">{{ info_web_install_url }}</label>
+          <div class="col-sm-10">
+            <code id="web-install-url">{{ web_install_url }}</code>
+            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('web-install-url')">
+              <i class="fa fa-copy"></i> Копировать
+            </button>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="col-sm-2 control-label"></label>
+          <div class="col-sm-10">
+            {% set web_install_description = info_web_install_description|replace({'WEB_INSTALL_URL': web_install_url}) %}
+            {{ web_install_description }}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+<script>
+function copyToClipboard(elementId) {
+  var element = document.getElementById(elementId);
+  var text = element.textContent || element.innerText;
+  
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      alert('URL скопирован в буфер обмена!');
+    });
+  } else {
+    // Fallback для старых браузеров
+    var textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      alert('URL скопирован в буфер обмена!');
+    } catch (err) {
+      alert('Не удалось скопировать URL');
+    }
+    document.body.removeChild(textArea);
+  }
+}
+</script>
 {{ footer }}
 
