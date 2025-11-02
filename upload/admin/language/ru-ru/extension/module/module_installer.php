@@ -41,5 +41,12 @@ $_['info_cli_exists']  = 'CLI скрипт найден';
 $_['info_cli_not_found'] = 'CLI скрипт не найден';
 $_['info_description'] = '<p>Этот модуль предоставляет CLI-интерфейс для установки других модулей OpenCart из zip-архивов.</p><p>Используйте следующую команду для установки модуля:</p><pre>php cli.php install-module /path/to/module.zip [--overwrite] [--verbose]</pre><p>Флаги:</p><ul><li><strong>--overwrite</strong> - перезаписать существующие файлы</li><li><strong>--verbose</strong> - вывести подробный лог</li></ul>';
 $_['info_deploy_url'] = 'URL для автодеплоя:';
-$_['info_deploy_description'] = '<p>Модуль поддерживает автоматический деплой из GitHub. Отправьте GET или POST запрос на URL выше для запуска деплоя.</p><p>Примеры:</p><ul><li>Обычный деплой: <code>curl "DEPLOY_URL"</code></li><li>Принудительный деплой (даже если SHA не изменился): <code>curl "DEPLOY_URL&force=1"</code></li></ul><p>Endpoint проверит последний commit SHA и скачает artifact, если найден новый коммит или используется force=1.</p>';
+$_['info_deploy_description'] = 'Модуль поддерживает автоматический деплой из GitHub. Отправьте POST запрос на URL выше для запуска деплоя. Секретный ключ передается в теле POST запроса, а не в URL.';
+$_['info_deploy_examples'] = 'Примеры использования:';
+$_['info_deploy_example_normal'] = 'Обычный деплой:';
+$_['info_deploy_example_force'] = 'Принудительный деплой:';
+$_['info_deploy_example_json'] = 'JSON запрос:';
+$_['info_deploy_example_github_actions'] = 'GitHub Actions:';
+$_['info_deploy_example_no_key'] = 'Сначала установите секретный ключ для автодеплоя, чтобы увидеть примеры.';
+$_['button_copy'] = 'Копировать';
 

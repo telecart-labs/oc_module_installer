@@ -3,15 +3,36 @@
  * Публичный контроллер для автодеплоя из GitHub
  * Доступен извне без авторизации в админке
  * 
- * URL: index.php?route=github_deploy/deploy&token=SECRET_KEY
+ * URL: index.php?route=github_deploy/deploy
+ * Метод: POST
+ * Тело запроса: token=SECRET_KEY&force=0 (опционально)
  */
 class ControllerGitHubDeploy extends Controller {
     
     /**
      * Endpoint для автодеплоя из GitHub
-     * URL: index.php?route=github_deploy/deploy&token=SECRET_KEY
+     * 
+     * URL: index.php?route=github_deploy/deploy
+     * Метод: POST
+     * Тело запроса (form-data или x-www-form-urlencoded):
+     *   token=SECRET_KEY
+     *   force=1 (опционально, для принудительного деплоя)
      */
     public function deploy() {
+        // Разрешаем только POST запросы
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Метод не разрешен. Используйте POST запрос.',
+                'previous_sha' => '',
+                'current_sha' => '',
+                'deployed' => false
+            ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            exit;
+        }
+        
         // Устанавливаем заголовок для JSON-ответа
         header('Content-Type: application/json; charset=utf-8');
         
@@ -28,8 +49,24 @@ class ControllerGitHubDeploy extends Controller {
         ];
         
         try {
-            // Проверка секретного ключа
-            $token = isset($this->request->get['token']) ? $this->request->get['token'] : '';
+            // Проверка секретного ключа из POST запроса
+            $token = isset($this->request->post['token']) ? $this->request->post['token'] : '';
+            
+            // Также проверяем raw POST данные (для JSON запросов)
+            if (empty($token)) {
+                $rawInput = file_get_contents('php://input');
+                $jsonData = json_decode($rawInput, true);
+                if ($jsonData && isset($jsonData['token'])) {
+                    $token = $jsonData['token'];
+                } else {
+                    // Пробуем парсить как form-data
+                    parse_str($rawInput, $parsed);
+                    if (isset($parsed['token'])) {
+                        $token = $parsed['token'];
+                    }
+                }
+            }
+            
             $secretKey = $this->config->get('module_module_installer_deploy_secret_key');
             
             if (empty($secretKey)) {
@@ -123,8 +160,19 @@ class ControllerGitHubDeploy extends Controller {
             $response['previous_sha'] = $lastSha ?: 'none';
             $response['current_sha'] = $currentSha;
             
-            // Проверяем параметр force для принудительного деплоя
-            $force = isset($this->request->get['force']) && ($this->request->get['force'] === '1' || $this->request->get['force'] === 'true');
+            // Проверяем параметр force для принудительного деплоя (из POST)
+            $force = false;
+            if (isset($this->request->post['force'])) {
+                $forceValue = $this->request->post['force'];
+                $force = ($forceValue === '1' || $forceValue === 'true' || $forceValue === true);
+            } else {
+                // Пробуем из raw POST данных (для JSON запросов)
+                $rawInput = file_get_contents('php://input');
+                $jsonData = json_decode($rawInput, true);
+                if ($jsonData && isset($jsonData['force'])) {
+                    $force = ($jsonData['force'] === '1' || $jsonData['force'] === 'true' || $jsonData['force'] === true);
+                }
+            }
             
             // Шаг 2: Проверяем, совпадает ли SHA (если не force)
             if (!$force && $currentSha === $lastSha) {

@@ -143,9 +143,12 @@ class ControllerExtensionModuleModuleInstaller extends Controller {
             $baseUrl = $protocol . $host . rtrim($basePath, '/') . '/';
         }
         
-        // URL для автодеплоя
-        $deployUrl = rtrim($baseUrl, '/') . '/index.php?route=github_deploy/deploy&token=' . urlencode($data['module_module_installer_deploy_secret_key']);
+        // URL для автодеплоя (без токена в URL - токен передается в POST)
+        $deployUrl = rtrim($baseUrl, '/') . '/index.php?route=github_deploy/deploy';
         $data['deploy_url'] = $deployUrl;
+        
+        // Передаем секретный ключ для примеров в шаблон
+        $data['deploy_secret_key'] = $data['module_module_installer_deploy_secret_key'];
 
         $data['header'] = $this->load->controller('common/header');
         $data['column_left'] = $this->load->controller('common/column_left');

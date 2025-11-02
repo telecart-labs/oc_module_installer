@@ -212,34 +212,96 @@
         <div class="form-group">
           <label class="col-sm-2 control-label"></label>
           <div class="col-sm-10">
-            {% set deploy_description = info_deploy_description|replace({'DEPLOY_URL': deploy_url}) %}
-            {{ deploy_description }}
+            <p>{{ info_deploy_description }}</p>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="col-sm-2 control-label">{{ info_deploy_examples }}</label>
+          <div class="col-sm-10">
+            {% if deploy_secret_key %}
+            <p style="margin-bottom: 15px;"><strong>{{ info_deploy_example_normal }}</strong></p>
+            <pre id="example-normal" class="deploy-example-code">curl -X POST "{{ deploy_url }}" \
+  -d "token={{ deploy_secret_key }}"</pre>
+            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('example-normal')" style="margin-bottom: 20px;">
+              <i class="fa fa-copy"></i> {{ button_copy }}
+            </button>
+            
+            <p style="margin-bottom: 15px;"><strong>{{ info_deploy_example_force }}</strong></p>
+            <pre id="example-force" class="deploy-example-code">curl -X POST "{{ deploy_url }}" \
+  -d "token={{ deploy_secret_key }}&force=1"</pre>
+            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('example-force')" style="margin-bottom: 20px;">
+              <i class="fa fa-copy"></i> {{ button_copy }}
+            </button>
+            
+            <p style="margin-bottom: 15px;"><strong>{{ info_deploy_example_json }}</strong></p>
+            <pre id="example-json" class="deploy-example-code">curl -X POST "{{ deploy_url }}" \
+  -H "Content-Type: application/json" \
+  -d '{"token":"{{ deploy_secret_key }}","force":1}'</pre>
+            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('example-json')" style="margin-bottom: 20px;">
+              <i class="fa fa-copy"></i> {{ button_copy }}
+            </button>
+            
+            <p style="margin-bottom: 15px;"><strong>{{ info_deploy_example_github_actions }}</strong></p>
+            <pre id="example-github-actions" class="deploy-example-code">- name: Trigger deployment
+  run: |
+    curl -X POST "{{ deploy_url }}" \
+      -d "token=${{ "{{ secrets.DEPLOY_SECRET_KEY }}" }}"</pre>
+            <button type="button" class="btn btn-sm btn-default" onclick="copyToClipboard('example-github-actions')">
+              <i class="fa fa-copy"></i> {{ button_copy }}
+            </button>
+            {% else %}
+            <p class="text-warning">{{ info_deploy_example_no_key }}</p>
+            {% endif %}
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+<style>
+.deploy-example-code {
+  position: relative;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+  max-width: 100%;
+  line-height: 1.5;
+}
+</style>
 <script>
 function copyToClipboard(elementId) {
   var element = document.getElementById(elementId);
   var text = element.textContent || element.innerText;
   
+  // Убираем лишние пробелы и переносы строк в начале и конце
+  text = text.trim();
+  
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(function() {
-      alert('URL скопирован в буфер обмена!');
+      alert('Скопировано в буфер обмена!');
+    }).catch(function(err) {
+      alert('Не удалось скопировать');
     });
   } else {
     // Fallback для старых браузеров
     var textArea = document.createElement('textarea');
     textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
     document.body.appendChild(textArea);
     textArea.select();
     try {
       document.execCommand('copy');
-      alert('URL скопирован в буфер обмена!');
+      alert('Скопировано в буфер обмена!');
     } catch (err) {
-      alert('Не удалось скопировать URL');
+      alert('Не удалось скопировать');
     }
     document.body.removeChild(textArea);
   }

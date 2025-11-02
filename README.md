@@ -19,6 +19,15 @@
 
 ## Установка
 
+### Быстрая установка
+
+```bash
+wget https://github.com/telecart-labs/oc_module_installer/archive/master.zip && \
+unzip master.zip && \
+cp -a oc_module_installer-master/upload/. upload/ && \
+rm -rf oc_module_installer-master master.zip
+```
+
 ### Ручная установка через SSH
 
 1. **Подключитесь к серверу по SSH:**
@@ -153,21 +162,36 @@ php cli.php install-module /tmp/module.zip --overwrite --verbose
 
 #### Использование
 
-Отправьте GET или POST запрос на endpoint:
+Отправьте POST запрос на endpoint (секретный ключ передается в теле запроса):
 ```
-https://your-site.com/index.php?route=github_deploy/deploy&token=YOUR_DEPLOY_SECRET_KEY
+https://your-site.com/index.php?route=github_deploy/deploy
 ```
 
-**Пример с curl:**
+**Пример с curl (form-data):**
 ```bash
-curl "https://your-site.com/index.php?route=github_deploy/deploy&token=YOUR_DEPLOY_SECRET_KEY"
+curl -X POST "https://your-site.com/index.php?route=github_deploy/deploy" \
+  -d "token=YOUR_DEPLOY_SECRET_KEY"
+```
+
+**Пример с curl (JSON):**
+```bash
+curl -X POST "https://your-site.com/index.php?route=github_deploy/deploy" \
+  -H "Content-Type: application/json" \
+  -d '{"token":"YOUR_DEPLOY_SECRET_KEY"}'
+```
+
+**Принудительный деплой (даже если SHA не изменился):**
+```bash
+curl -X POST "https://your-site.com/index.php?route=github_deploy/deploy" \
+  -d "token=YOUR_DEPLOY_SECRET_KEY&force=1"
 ```
 
 **Пример с GitHub Actions:**
 ```yaml
 - name: Trigger deployment
   run: |
-    curl "https://your-site.com/index.php?route=github_deploy/deploy&token=${{ secrets.DEPLOY_SECRET_KEY }}"
+    curl -X POST "https://your-site.com/index.php?route=github_deploy/deploy" \
+      -d "token=${{ secrets.DEPLOY_SECRET_KEY }}"
 ```
 
 #### Ответ сервера

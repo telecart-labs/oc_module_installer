@@ -41,5 +41,12 @@ $_['info_cli_exists']  = 'CLI script found';
 $_['info_cli_not_found'] = 'CLI script not found';
 $_['info_description'] = '<p>This module provides CLI interface for installing OpenCart modules from zip archives.</p><p>Use the following command to install a module:</p><pre>php cli.php install-module /path/to/module.zip [--overwrite] [--verbose]</pre><p>Flags:</p><ul><li><strong>--overwrite</strong> - overwrite existing files</li><li><strong>--verbose</strong> - output verbose log</li></ul>';
 $_['info_deploy_url'] = 'Auto Deploy URL:';
-$_['info_deploy_description'] = '<p>This module supports automatic deployment from GitHub. Send GET or POST request to the URL above to trigger deployment.</p><p>Examples:</p><ul><li>Normal deployment: <code>curl "DEPLOY_URL"</code></li><li>Force deployment (even if SHA unchanged): <code>curl "DEPLOY_URL&force=1"</code></li></ul><p>The endpoint will check the latest commit SHA and download artifact if a new commit is found or force=1 is used.</p>';
+$_['info_deploy_description'] = 'This module supports automatic deployment from GitHub. Send POST request to the URL above to trigger deployment. Secret key is passed in POST body, not in URL.';
+$_['info_deploy_examples'] = 'Usage examples:';
+$_['info_deploy_example_normal'] = 'Normal deployment:';
+$_['info_deploy_example_force'] = 'Force deployment:';
+$_['info_deploy_example_json'] = 'JSON request:';
+$_['info_deploy_example_github_actions'] = 'GitHub Actions:';
+$_['info_deploy_example_no_key'] = 'Please set the deployment secret key first to see examples.';
+$_['button_copy'] = 'Copy';
 
