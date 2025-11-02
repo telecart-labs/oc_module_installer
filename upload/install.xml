@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+    <name>Module Installer (CLI)</name>
+    <code>module_installer</code>
+    <version>1.0.0</version>
+    <author>Developer Tools</author>
+    <link></link>
+
+    <file path="admin/controller/common/dashboard.php">
+        <operation>
+            <search><![CDATA[// Total Customers]]></search>
+            <add position="after"><![CDATA[
+            // Module Installer CLI info
+            ]]></add>
+        </operation>
+    </file>
+</modification>
+

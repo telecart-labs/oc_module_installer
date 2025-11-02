@@ -1,0 +1,34 @@
+# Пример минимального workflow для тестирования модуля установщика
+# Можно использовать как шаблон для быстрого старта
+
+name: Test Module Installer
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: zip
+
+      - name: Test CLI syntax
+        run: |
+          cd module/oc_module_installer/upload
+          php -l cli.php
+          php -l system/library/module_installer.php
+
+      - name: Test CLI help
+        run: |
+          cd module/oc_module_installer/upload
+          php cli.php install-module 2>&1 | grep -q "install-module" && echo "✅ CLI работает" || exit 1
+
