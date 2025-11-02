@@ -32,12 +32,12 @@
 
 3. **Скачайте последний zip-архив модуля из GitHub:**
    ```bash
-   wget https://github.com/telecart-labs/oc_module_installer/archive/refs/heads/master.zip
+   wget https://github.com/telecart-labs/oc_module_installer/archive/master.zip
    ```
    
    Или используя `curl`:
    ```bash
-   curl -L -o master.zip https://github.com/telecart-labs/oc_module_installer/archive/refs/heads/master.zip
+   curl -L -o master.zip https://github.com/telecart-labs/oc_module_installer/archive/master.zip
    ```
 
 4. **Распакуйте архив:**
